@@ -200,3 +200,25 @@ Out of scope for the five issues, but flagged here.
   `elif days_since_last == 1:`.
 - **Verification:** `pytest tests/test_streaks.py` — all 5 tests pass, including
   `test_streak_increments_on_sunday`.
+
+### Bug #4 — No notification when a friend rates my song
+
+- **Symptom:** When a friend adds your shared song to a playlist you get a
+  notification, but when a friend *rates* your song you get nothing.
+- **How reproduced:** User A shares a song; user B rates it via
+  `rate_song(B, song, 5)`. `get_notifications(A)` returns 0 (expected 1). See
+  `tests/test_notifications.py::test_rating_notifies_song_sharer` (added with this
+  fix), which failed before the change.
+- **Root cause:** The bug is architectural, not a typo. `add_to_playlist`
+  ([notification_service.py:64](services/notification_service.py#L64)) calls
+  `create_notification` for `song.shared_by` after committing. The parallel
+  `rate_song` function persisted the rating but **never called
+  `create_notification` at all** — the notification step was simply missing from
+  that code path.
+- **Fix:** After the rating commits, mirror the `add_to_playlist` pattern: if the
+  rater is not the song's sharer, create a `song_rated` notification for
+  `song.shared_by`. The `song.shared_by != user_id` guard prevents self-rating
+  notifications, matching how `add_to_playlist` skips self-adds.
+- **Verification:** New test `test_rating_notifies_song_sharer` passes; a manual
+  check confirms a `song_rated` notification is created on a friend's rating and
+  **not** created when the sharer rates their own song. Full suite green.
