@@ -222,3 +222,19 @@ Out of scope for the five issues, but flagged here.
 - **Verification:** New test `test_rating_notifies_song_sharer` passes; a manual
   check confirms a `song_rated` notification is created on a friend's rating and
   **not** created when the sharer rates their own song. Full suite green.
+
+### Bug #5 — Last song in a playlist never shows up
+
+- **Symptom:** Viewing a playlist's songs always omits the last (highest-position)
+  song. A 5-song playlist shows 4.
+- **How reproduced:** Seed a playlist with 5 songs at positions 1–5 and call
+  `get_playlist_songs(playlist_id)`. It returns 4 songs, missing "Track 5".
+  Captured by the existing `tests/test_playlists.py::test_playlist_returns_all_songs`
+  and `test_playlist_returns_songs_in_order`, both of which failed before the fix.
+- **Root cause:** [playlist_service.py:66](services/playlist_service.py#L66) built
+  its result with `[song.to_dict() for song in songs[:-1]]`. The `[:-1]` slice
+  drops the final element of the position-ordered list. The query itself is
+  correct (ordered ascending by position); the slice silently truncated it.
+- **Fix:** Iterate over the full list: `[song.to_dict() for song in songs]`.
+- **Verification:** `pytest tests/test_playlists.py` — all 3 tests pass, including
+  the all-songs and ordering tests, and the empty-playlist case still returns `[]`.
