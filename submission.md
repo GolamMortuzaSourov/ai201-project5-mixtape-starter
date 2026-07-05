@@ -1,8 +1,42 @@
 # Project 5: Mixtape Bug Hunt — Submission
 
-> AI disclosure: I used Claude Code to help navigate and summarize the codebase
-> during orientation (file-by-file summaries and call-chain tracing). All bug
-> diagnosis, fixes, and root-cause analysis decisions are documented below.
+## AI Usage
+
+I used Claude Code (AI assistant) throughout this project. Being specific about
+*how*, including where it helped and where it was wrong or incomplete:
+
+**Codebase navigation (Milestone 1).** I had the AI summarize each service and
+route file ("what is this module responsible for, what does each function do") and
+trace the `route → service → model` call chains for the codebase map. This was the
+most reliable use — summarizing code that already exists. I still read every file
+myself and confirmed each trace against the source before writing the map.
+
+**Debugging / investigation (Milestone 3).** I used AI for the *understanding*
+step, not the *diagnosis* step:
+- Confirmed a factual detail I'd already narrowed to: Python's `datetime.weekday()`
+  returns `6` for Sunday (this is what makes Bug #1's `weekday() != 6` guard fire
+  on Sundays). I verified it in a REPL rather than taking the answer on faith.
+- Asked it to compare the *structural* difference between the `rate_song` and
+  `add_to_playlist` code paths for Bug #4. It correctly pointed out `rate_song`
+  has no `create_notification` call — but I confirmed that by reading both
+  functions end-to-end myself, because "these look structurally different" is only
+  a lead, not proof.
+
+**Where AI was wrong / incomplete — and how I caught it.** Reading the code alone
+(and an initial AI read of it) flagged Bug #3 as a real duplicate-rows bug: the
+search query does `outerjoin(song_tags)` with no `.distinct()`, which *looks* like
+it should return one row per tag. That diagnosis was plausible and wrong. When I
+actually ran `search_songs()` against a 3-tag song, it returned **1** row, not 3,
+because SQLAlchemy's ORM de-duplicates full-entity results by primary key. This is
+exactly the failure mode the assignment warns about — a plausible-from-reading
+diagnosis that only running the code disproves. It's why I reproduce every bug
+before touching it, and why I dropped #3 rather than "fixing" a bug that doesn't
+occur. Running the code also surfaced an incidental `IntegrityError` in
+`add_to_playlist` that neither reading nor the AI had predicted.
+
+**Not used for:** deciding which bugs were real (I reproduced each one with a script
+or failing test), or accepting any fix without verifying it against a test or manual
+run.
 
 ---
 
@@ -341,24 +375,3 @@ is now excluded, an event just after midnight (today) is included; the per-frien
 dedup and ordering are unchanged; and `get_activity_feed` (which is intentionally
 *not* recency-filtered) was deliberately left untouched. Full suite still green.
 
----
-
-## AI Usage Disclosure
-
-I used Claude Code (an AI assistant) during this project. How it was used, per the
-disclosure guidance:
-
-- **Orientation (Milestone 1):** to summarize each service/route file and trace the
-  route → service → model call chains for the codebase map. I verified each trace
-  against the actual source.
-- **Reproduction (Milestone 2):** to help write the small reproduction scripts that
-  confirmed each bug and to run the existing test suite.
-- **Investigation (Milestone 3):** for the *understanding* step only — e.g.
-  confirming that Python's `datetime.weekday()` returns 6 for Sunday, and comparing
-  the structural difference between the `rate_song` and `add_to_playlist` code
-  paths. In every case I located the suspicious code and verified the diagnosis by
-  reading and running it myself; the AI did not "guess" the bug locations before I
-  had read the relevant code.
-- **Not used for:** deciding which bugs were real (I reproduced each one), or
-  accepting fixes without verification (every fix was confirmed by a test or manual
-  run).
