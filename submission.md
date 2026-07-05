@@ -181,4 +181,22 @@ Out of scope for the five issues, but flagged here.
 
 ## Root-Cause Analysis
 
-Entries will be added below as each bug is fixed. No code changed yet.
+### Bug #1 — Listening streak resets on Sundays
+
+- **Symptom:** A user's listening streak drops back to 1 even though they listened
+  on consecutive days, but only when the current day is a Sunday.
+- **How reproduced:** `update_listening_streak(user, saturday)` then
+  `update_listening_streak(user, sunday)` for consecutive dates
+  (`2024-06-15` → `2024-06-16`). Expected streak `2`, got `1`. Captured by the
+  existing `tests/test_streaks.py::test_streak_increments_on_sunday`, which failed
+  before the fix.
+- **Root cause:** [streak_service.py:73](services/streak_service.py#L73) guarded
+  the increment with `elif days_since_last == 1 and today.weekday() != 6:`.
+  `weekday() == 6` is Sunday, so on Sundays the consecutive-day branch was skipped
+  and control fell through to the `else`, which resets the streak to 1. The
+  weekday check has nothing to do with streak logic — a streak should increment on
+  any consecutive calendar day.
+- **Fix:** Removed the `and today.weekday() != 6` clause so the branch is simply
+  `elif days_since_last == 1:`.
+- **Verification:** `pytest tests/test_streaks.py` — all 5 tests pass, including
+  `test_streak_increments_on_sunday`.
