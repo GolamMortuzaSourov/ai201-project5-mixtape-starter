@@ -179,6 +179,22 @@ Out of scope for the five issues, but flagged here.
 
 ---
 
+## Summary of Work
+
+**Bugs fixed (4 of 5):** #1 (streak), #4 (notifications), #5 (playlist) — required
+three — plus stretch bug #2 (feed). Each is its own commit on `bugfix/mixtape`.
+Bug #3 was investigated but does not reproduce (see Milestone 2); the reasoning is
+documented rather than a fix applied.
+
+**Stretch features completed:**
+- Fixed a 4th bug (#2, feed).
+- Wrote regression tests: `tests/test_notifications.py` (`test_rating_notifies_song_sharer`,
+  `test_self_rating_does_not_notify`) — these fail against the pre-fix code and
+  guard Issue #4 going forward.
+
+**Test status:** `pytest tests/` → 15 passed (was 13 with 3 failing before fixes;
++2 new notification tests).
+
 ## Root-Cause Analysis
 
 ### Bug #1 — Listening streak resets on Sundays
