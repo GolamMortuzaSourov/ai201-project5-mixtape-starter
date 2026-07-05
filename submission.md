@@ -238,3 +238,29 @@ Out of scope for the five issues, but flagged here.
 - **Fix:** Iterate over the full list: `[song.to_dict() for song in songs]`.
 - **Verification:** `pytest tests/test_playlists.py` — all 3 tests pass, including
   the all-songs and ordering tests, and the empty-playlist case still returns `[]`.
+
+### Bug #2 — "Friends Listening Now" shows people from yesterday (stretch)
+
+- **Symptom:** The "Friends Listening Now" feed lists friends who last listened
+  yesterday, not just those active today.
+- **How reproduced:** Give a friend a `ListeningEvent` timestamped ~20h ago (a
+  prior calendar day, but inside 24h) and call `get_friends_listening_now`. The
+  friend still appears.
+- **Root cause:** [feed_service.py](services/feed_service.py) used
+  `RECENT_THRESHOLD = timedelta(hours=24)` with
+  `cutoff = datetime.now(utc) - RECENT_THRESHOLD`. A rolling 24-hour window always
+  reaches back into the previous calendar day, so someone who listened last night
+  still counts as "now."
+- **Fix:** Replaced the rolling window with a calendar-day boundary: the cutoff is
+  now the start of the current day in UTC
+  (`now.replace(hour=0, minute=0, second=0, microsecond=0)`). This matches the
+  issue's "yesterday" framing and is consistent with the day-based logic already
+  used for streaks. Removed the now-unused `RECENT_THRESHOLD` and `timedelta`
+  import.
+- **Design note:** "Listening now" is interpreted as "listened today (UTC)." An
+  alternative would be a short rolling window (e.g. 15–30 min); I chose the
+  calendar-day boundary because the reported bug is specifically about *yesterday*
+  and the app already reasons in calendar days elsewhere.
+- **Verification:** Manual check — a friend whose only listen was 5 minutes before
+  midnight (yesterday) no longer appears; a friend who listened today does. Full
+  suite still green (feed has no existing automated tests).
